@@ -2,7 +2,7 @@
 from fastapi import FastAPI,Path,HTTPException,Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel,Field,computed_field
-from typing import Annotated,Literal
+from typing import Annotated,Literal, Optional
 
 import json
 
@@ -20,6 +20,17 @@ class patiant(BaseModel):
 
     #it for data validation 
     # if input data is not in the right format it will through an error 
+    
+class PatiantUpdate(BaseModel):
+    name:Annotated[Optional[str],Field(default=None)]
+    city:Annotated[Optional[str],Field(default=None)]
+    age:Annotated[Optional[int],Field(default=None,gt=0)]
+    gender:Annotated[Optional[Literal['Male','Female']],Field(default=None)]
+    height:Annotated[Optional[float],Field(default=None,gt=0)]
+    weight:Annotated[Optional[float],Field(default=None,gt=0)]
+
+
+
 
     @computed_field
     @property
@@ -127,3 +138,29 @@ def cteate_patient(patiant: patiant):# data comming form request body that is go
 
     # now giving respose that patient has been created 
     return JSONResponse(status_code=201,content={'massage':'paitant created successfully'})
+
+@app.put("/edit/{patients_id}")
+def update_patiant(patients_id: str, Patiant_update: PatiantUpdate):
+
+    data=load_data()
+
+    if patients_id not in data:
+        raise HTTPException(status_code=404,detail="Patinet in not found")
+    exsting_patiant_info = data[patients_id]
+
+    updated_patiant_info=Patiant_update.model_dump(exclude_unset = True)
+
+    for key,value in exsting_patiant_info.item():
+        exsting_patiant_info[key]=value
+
+    exsting_patiant_info['id']=patients_id
+    pataint_pydantic_model_obj= patiant(**exsting_patiant_info) #making object to acsess the patiant class
+
+    exsting_patiant_info=pataint_pydantic_model_obj.model_dump(exclude='id')
+
+
+    data[patients_id]=exsting_patiant_info
+
+    save_data(data)
+
+    return JSONResponse(status_code=200,content={'massage':'paitant updated'})
