@@ -1,7 +1,6 @@
-
 from fastapi import FastAPI,Path,HTTPException,Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel,Field,computed_field
+from pydantic import BaseModel,Field,computed_field,field_validator
 from typing import Annotated,Literal, Optional
 
 import json
@@ -18,40 +17,50 @@ class patiant(BaseModel):
     height: Annotated[float,Field(..., gt=0, description= "height of the patiant in meter")]
     weight:Annotated[float,Field(..., gt=0, description="weigth of patiant in kg" )] 
 
-    #it for data validation 
+    #its for data validation 
     # if input data is not in the right format it will through an error 
     
+
 class PatiantUpdate(BaseModel):
-    name:Annotated[Optional[str],Field(default=None)]
-    city:Annotated[Optional[str],Field(default=None)]
-    age:Annotated[Optional[int],Field(default=None,gt=0)]
-    gender:Annotated[Optional[Literal['Male','Female']],Field(default=None)]
-    height:Annotated[Optional[float],Field(default=None,gt=0)]
-    weight:Annotated[Optional[float],Field(default=None,gt=0)]
+    name: Annotated[Optional[str], Field(default=None)]
+    city: Annotated[Optional[str], Field(default=None)]
+    age: Annotated[Optional[int], Field(default=None, gt=0)]
+    gender: Annotated[Optional[Literal['male', 'female', 'others']],Field(default=None)]
+    height: Annotated[Optional[float], Field(default=None, gt=0)]
+    weight: Annotated[Optional[float], Field(default=None, gt=0)]
 
 
 
+    @field_validator('gender', mode='before')
+    @classmethod
+    def normalize_gender(cls, v):
+        if isinstance(v, str):
+            return v.upper()  # Converts 'female' -> 'FEMALE'
+        return v
 
     @computed_field
     @property
     def bmi(self) -> float:
-        bmi=round(self.weight/(self.height**2),2)
-        return bmi
+        if self.weight is not None and self.height is not None:
+            bmi=round(self.weight/(self.height**2),2)
+            return bmi
     # it calculating the BMI of patiant
 
 
     @computed_field
     @property
     def verdict(self) -> str:
-
-        if self.bmi < 18.5:
-            return'underweight'
-        elif self.bmi<25:
-            return "Normal"
-        elif self.bmi<30:
-            return"normal"
-        else:
-            return"obese"
+        if self.bmi is not None:
+            if self.bmi < 18.5:
+                return'underweight'
+            elif self.bmi<25:
+                return "Normal"
+            elif self.bmi<30:
+                return"normal"
+            else:
+                return"obese"
+            
+        
      # based on the patiant BMI it is puting them in diffrant category
 
 
@@ -95,16 +104,14 @@ def view_patiant(patients_id: str=Path(..., description='id of patiant in the DB
     raise HTTPException(status_code=404,detail="patiant not found")
     # it is showing if patient is in the DB it will show patient or raise an error
 
-@app.get('/sort') 
-# this method allow user to sort the patient on the basis of hight,weigth,bmi
+@app.get('/sort') #this method allow user to sort the patient on the basis of hight,weigth,bmi
 
 def sort_patiants(sort_by :str =Query (...,description='sorting on the basis of hight weight bmi'), order:str=Query('asc',description="sorting in the ascending order ")):
     
     valid_filed=['hieght','weight','bmi']
 
     if sort_by not in valid_filed:
-        raise HTTPException(status_code=400,detail="invalid file select by {valid_filed}") 
-    # 400 mean bad request
+        raise HTTPException(status_code=400,detail="invalid file select by {valid_filed}") #400 mean bad request
     
     if order not in ['asc','desc']:
         raise HTTPException(status_code=400,detail="invalid order selected between ascending and desending ") 
@@ -115,12 +122,10 @@ def sort_patiants(sort_by :str =Query (...,description='sorting on the basis of 
 
     sorted_data=sorted(data.values(),key=lambda x: x.get(sort_by,0),reverse=sort_order)
 
-    return sorted_data 
-
-# now creating post method 
+    return sorted_data #now creating post method 
 
 @app.post("/create")
-def cteate_patient(patiant: patiant):# data comming form request body that is going thorugh the pydantic model for data validation
+def cteate_patient(patiant: patiant):#data comming form request body that is going thorugh the pydantic model for data validation
     
     # loaing eaxsting data 
     data=load_data()
@@ -131,7 +136,7 @@ def cteate_patient(patiant: patiant):# data comming form request body that is go
     
     # adsing new patiant in DB
     data[patiant.id]=patiant.model_dump(exclude=['id'])
-    #model_dump convert pydantic model into dictionry
+    # model_dump convert pydantic model into dictionry
 
     # now saving the data in the DB
     save_data(data)
@@ -139,28 +144,41 @@ def cteate_patient(patiant: patiant):# data comming form request body that is go
     # now giving respose that patient has been created 
     return JSONResponse(status_code=201,content={'massage':'paitant created successfully'})
 
-@app.put("/edit/{patients_id}")
-def update_patiant(patients_id: str, Patiant_update: PatiantUpdate):
+# update the patiant info input is patiant id that is sring
 
-    data=load_data()
+@app.put('/edit/{patient_id}')
+def update_patient(patient_id: str, patient_update: PatiantUpdate):
 
-    if patients_id not in data:
-        raise HTTPException(status_code=404,detail="Patinet in not found")
-    exsting_patiant_info = data[patients_id]
+    data = load_data()
 
-    updated_patiant_info=Patiant_update.model_dump(exclude_unset = True)
+    if patient_id not in data:
+        raise HTTPException(status_code=404, detail='Patient not found')
 
-    for key,value in exsting_patiant_info.item():
-        exsting_patiant_info[key]=value
+    existing_patient_info = data[patient_id]
 
-    exsting_patiant_info['id']=patients_id
-    pataint_pydantic_model_obj= patiant(**exsting_patiant_info) #making object to acsess the patiant class
+    updated_patient_info = patient_update.model_dump(exclude_unset=True)
 
-    exsting_patiant_info=pataint_pydantic_model_obj.model_dump(exclude='id')
+    # update fields
+    for key, value in updated_patient_info.items():
+        if value is not None:
+            existing_patient_info[key] = value
 
 
-    data[patients_id]=exsting_patiant_info
+    if 'gender' in existing_patient_info and existing_patient_info['gender']:
+        existing_patient_info['gender'] = existing_patient_info['gender'].lower()
+
+    # IMPORTANT: add id BEFORE creating Patient
+    patient_dict = {
+        "id": patient_id,
+        **existing_patient_info
+    }
+
+    # rebuild Patient to recompute bmi & verdict
+    patient_obj = patiant(**patient_dict)
+
+    # save back (exclude id from storage)
+    data[patient_id] = patient_obj.model_dump(exclude={"id"})
 
     save_data(data)
 
-    return JSONResponse(status_code=200,content={'massage':'paitant updated'})
+    return JSONResponse(status_code=200, content={'message': 'patient updated'})
