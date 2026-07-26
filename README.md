@@ -5,6 +5,8 @@ A small CRUD API built with **FastAPI** and **Pydantic** for managing patient re
 ## Features
 
 - Create, view, update, and sort patient records
+
+![alt text](static/image.png)
 - Request/response validation handled by Pydantic models
 - BMI and a weight-category verdict computed as a Pydantic `computed_field`
 - Data persisted to a local `patients.json` file — no external database needed
@@ -37,7 +39,6 @@ cd fast-api
 pip install fastapi uvicorn pydantic
 ```
 
-> There's no `requirements.txt` in the repo yet — the command above installs what `main.py` actually imports.
 
 ### Run it
 
@@ -80,6 +81,8 @@ uvicorn main:app --reload
 
 ### Example: create a patient
 
+
+![alt text](<static/image copy 2.png>)
 ```bash
 curl -X POST http://127.0.0.1:8000/create \
   -H "Content-Type: application/json" \
@@ -98,8 +101,9 @@ curl -X POST http://127.0.0.1:8000/create \
 
 ```
 GET /sort?sort_by=bmi&order=desc
-```
 
+```
+![alt text](<static/image copy.png>)
 ## Known Issues
 
 These were confirmed by running the code directly rather than just reading it, so a future cleanup pass can target them specifically:
@@ -109,3 +113,4 @@ These were confirmed by running the code directly rather than just reading it, s
 3. **`sort_by` has a typo that changes its behavior.** The accepted value is the misspelled `hieght`, not `height` — passing the correctly spelled `height` returns a 400. Passing `hieght` is accepted but doesn't actually sort, since patient records store the key as `height`; the lookup silently falls back to a default and the original order is preserved.
 4. **The BMI verdict mislabels the overweight range as "normal".** For a BMI between 25 and 30 — the standard "overweight" range — `verdict` returns `"normal"` (lowercase), while BMI under 25 returns `"Normal"` (capital N). Both are distinct from `patients.json`'s own pre-filled `verdict` values (e.g. `"Overweight"`), which appear to have been entered by hand rather than produced by this code.
 5. **No `requirements.txt`, tests, or auth** — expected for a learning project, but worth knowing before treating this as production-ready.
+
