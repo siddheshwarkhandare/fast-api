@@ -2,10 +2,11 @@ from fastapi import FastAPI,Path,HTTPException,Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel,Field,computed_field,field_validator
 from typing import Annotated,Literal, Optional
-
+from fastapi.staticfiles import StaticFiles
 import json
 
 app = FastAPI()# object of the fastapi this is import for any project
+app.mount("/ui", StaticFiles(directory="static", html=True), name="ui")
 
 class patiant(BaseModel):
     
